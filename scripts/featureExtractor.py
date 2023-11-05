@@ -80,7 +80,7 @@ class featureExtractor:
         1. Profile characteristics from a (gaussian+pol0) fit (amplitude, mean, sigma, constant)
         2. ?\n----------------
         """
-        (self.logging).info(msg)
+        (self.logging).debug(msg)
     
     
     # Initialize and perform the gaussian fit

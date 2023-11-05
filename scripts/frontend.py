@@ -75,13 +75,13 @@ class frontend:
         fNoise              : {fNoise} e or {self.fNoise:.2f} in C
         iADCres             : {self.iADCres}-bit
         fOlScale            : {fOlScale} e or {self.fOlScale:.2f} in C
-        fGain               : {fGain} mV/pC or {self.fGain:.2f} in V/C
+        fGain               : {fGain} or {self.fGain:.2f}
         chgShrCrossTalkMap  : {self.chgShrCrossTalkMap} % \n----------------
         """
-        (self.logging).info(msg)
+        (self.logging).debug(msg)
      
     
-    def __init__(self, fNoise: float, iADCres: int, fOlScale: float, fGain: float, vChgShrCrossTalkMap: list, projChgProfiles: np.array):
+    def __init__(self, fNoise: float, iADCres: int, fOlScale: float, fGain: float, vChgShrCrossTalkMap: list, projChgProfiles: np.ndarray):
         """
         Overload of the init class function for taking an input projProfile profile and processing with default parameters
         
@@ -101,7 +101,7 @@ class frontend:
         
         # Copy the list of TGraphErrors internally so that the input objects are not modified
         self.projChgProfiles = np.array([{'d0_x' : item['d0_x'].Clone(), 'd1_y': item['d1_y'].Clone()} for item in projChgProfiles])
-        (self.logging).info("Called with external profiles")
+        (self.logging).debug("Called with external profiles")
         self.initialize(fNoise, iADCres, fOlScale, fGain, vChgShrCrossTalkMap)
     
     
@@ -353,5 +353,5 @@ class frontend:
    
     
     # Return the array of digitized profiles
-    def getDigitizedProfiles(self) -> np.array:
+    def getDigitizedProfiles(self) -> np.ndarray:
         return (self.projChgProfiles)

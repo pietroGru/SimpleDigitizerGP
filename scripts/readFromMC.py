@@ -169,7 +169,6 @@ class readFromMc():
         ----------
             bunchData (list) : list of dictionary containing the data of each bunch
 
-        
         Returns
         -------
             npChgDepProfile_err (np.ndarray) : numpy array with the uncertainty on the charge deposited in each strip of each bunch
@@ -183,7 +182,7 @@ class readFromMc():
         # Store the profiles in a numpy array
         npChgDepProfile = np.zeros((bunchesNb, 2, 2, 200))         # bunch, det, direction, strip
         
-        for bunch in tqdm(range(bunchesNb), desc="Calculating errors"):
+        for bunch in range(bunchesNb):
             # Get the bunch edep 2D Map
             _edepMapUp, _edepMapDo = bunchData[bunch][f"b{bunch}_edepMapUp"], bunchData[bunch][f"b{bunch}_edepMapDo"]
 
@@ -236,12 +235,12 @@ class readFromMc():
             msg = f"Loading {dumpFname[dumpFname.rfind('/')+1:]} from file"
             result = np.load(dumpFname, allow_pickle=True)
             msg += " with "+"\x1b[32;1m"+"success"+"\x1b[0m"
-            (self.logging).info(msg)
+            (self.logging).debug(msg)
             return result
         except Exception as e:
             msg += f" failed ({e})"
             (self.logging).error(msg)
-            (self.logging).info("Calculating from scratch")
+            (self.logging).debug("Calculating from scratch")
         
         # Open the input ROOT file
         riFile = ROOT.TFile.Open(self.rFname, "READ")
@@ -258,7 +257,7 @@ class readFromMc():
             prtTypeStr = "electrons"
         elif pdg==22:
             prtTypeStr = "photons"
-        (self.logging).info(f"The number of bunches in the simulation is {bunchNb}. Primary {prtTypeStr} are: {prtTypeStr}")
+        (self.logging).debug(f"The number of bunches in the simulation is {bunchNb}. Primary {prtTypeStr} are: {prtTypeStr}")
         
         # Assert that we have non zero bunch number in the sim file
         if bunchNb == 0: raise Exception(f"There are {primaryParNb} primaries and the user number of particles in the bunch is {bunchParNb}. This gets zero particles/bunch with present MC file.")
@@ -290,7 +289,7 @@ class readFromMc():
         # Dump the npChgDepProfile to file for future recalling
         result_np = np.array(result)
         np.save(dumpFname, result_np, allow_pickle=True)
-        (self.logging).info(f"[readEdepFromROOT] File {dumpFname[dumpFname.rfind('/')+1:]} saved on file")
+        (self.logging).debug(f"[readEdepFromROOT] File {dumpFname[dumpFname.rfind('/')+1:]} saved on file")
 
         return result_np
 
@@ -314,7 +313,7 @@ class readFromMc():
         # If the _tmp_readEdepFromROOT.npy already exist, then read the data from the file and return immediately
         bunchDumpFname = (self.rFname).replace('.root', f'_{bunchParNb}.npy')
         if os.path.exists(bunchDumpFname):
-            (self.logging).info(f"Loading {bunchDumpFname} from file")
+            (self.logging).debug(f"Loading {bunchDumpFname} from file")
             try:
                 # produces something like dummyRun_100k.root -> dummyRun_100k_10_22.npy if 10 is bunchNb and 22 is pdg   
                 result = np.load(bunchDumpFname, allow_pickle=True)
@@ -365,7 +364,7 @@ class readFromMc():
         # Dump the npChgDepProfile to file for future recalling
         result_np = np.array(result)
         np.save(bunchDumpFname, result_np, allow_pickle=True)
-        (self.logging).info(f"Dumped {bunchDumpFname} to file")
+        (self.logging).debug(f"Dumped {bunchDumpFname} to file")
         
         return result_np
 
@@ -379,7 +378,7 @@ class readFromMc():
     #################################################################################################
 
     @dispatch(int, float, float)
-    def readProjProfilesFromROOT(self, bunchParNb: int, cce: float, avgPairEn: float) -> np.array:
+    def readProjProfilesFromROOT(self, bunchParNb: int, cce: float, avgPairEn: float) -> np.ndarray:
         """
         Loads the MC data from the fname, slice the total energy deposition in the sensor into bunches with 'bunchParNb' particles each,
         and returns a collection of TGraphErrors with the projected charge profiles (cce and avgPairEn are used for this) whose strip charges have also
@@ -405,7 +404,7 @@ class readFromMc():
             try:
                 depProjProfsBunch_np = np.load(dumpFname, allow_pickle=True)
                 msg += " with "+"\x1b[32;1m"+"success"+"\x1b[0m"
-                (self.logging).info(msg)
+                (self.logging).debug(msg)
                 
                 # Debug
                 if ((self.logging).level == 10):
@@ -415,7 +414,7 @@ class readFromMc():
             except Exception as e:
                 msg += f" failed ({e})"
                 (self.logging).error(msg)
-                (self.logging).info("Calculating from scratch")
+                (self.logging).debug("Calculating from scratch")
         
 
         # Get - from the ROOT file produced by the MC - the list with, for each bunch, the map of energy deposition
@@ -431,7 +430,7 @@ class readFromMc():
         
         # Attach the errors to the profiles
         depProjProfsBunch = []
-        for bunch in tqdm(range(bunchesNb), desc="ProjGraphs with err"):
+        for bunch in range(bunchesNb):
             # Get the bunch edep 2D Map
             _edepMapUp, _edepMapDo = bunchEMaps[bunch][f"b{bunch}_edepMapUp"], bunchEMaps[bunch][f"b{bunch}_edepMapDo"]
             
@@ -451,7 +450,8 @@ class readFromMc():
         
 
         # Remove the objects from memory
-        (self.logging).critical("Remove implement me")
+        # TODO memory cleaup
+        #(self.logging).critical("Remove implement me")
         #for tp in ['Dep', 'Proj']:
         #    for dir in ['X', 'Y']:
         #        obName = f'chg{tp}Profile{dir}'
@@ -463,7 +463,7 @@ class readFromMc():
         # Dump the processed profiles in memory into a file
         depProjProfsBunch_np = np.array(depProjProfsBunch)
         np.save(dumpFname, depProjProfsBunch_np, allow_pickle=True)
-        (self.logging).info(f"[readProjProfilesFromROOT] File {dumpFname[dumpFname.rfind('/')+1:]} saved on file")
+        (self.logging).debug(f"[readProjProfilesFromROOT] File {dumpFname[dumpFname.rfind('/')+1:]} saved on file")
         
         
         if ((self.logging).level == 10):
@@ -475,13 +475,13 @@ class readFromMc():
     
     
     @dispatch()
-    def readProjProfilesFromROOT(self) -> np.array:
+    def readProjProfilesFromROOT(self) -> np.ndarray:
         return self.readProjProfilesFromROOT(self.bunchParNb, self.cce, self.avgPairEn)
 
 
 
     @dispatch(int, int, int, float, float)
-    def readProjProfilesFromROOT(self, bunchParNb: int, pdg: int, cce: float, avgPairEn: float) -> np.array:
+    def readProjProfilesFromROOT(self, bunchParNb: int, pdg: int, cce: float, avgPairEn: float) -> np.ndarray:
         (self.logging).error("I'm not implemented yet")
         raise Exception("I'm not implemented yet")
     
