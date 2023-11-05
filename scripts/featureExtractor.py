@@ -12,11 +12,13 @@ from logger import create_logger
 import numpy as np
 import ROOT
 import os
+from matplotlib import pyplot as plt
 
 # This is a container for the output of the digitization pipeline.
 # Meaning that you calculate the parameters you want to extract from the digitized profiles and you store them into this root file in such a way (RATIONAL AND LOGICAL WAY) that the
 # analysis that you have to perform in the (near) future is conveniently done using this root file.
 #roFileClass = rdataStruct_OPT("myDummyDigitizationOptimization.root")
+
 
 
 class featureExtractor:
@@ -27,21 +29,50 @@ class featureExtractor:
     logging = create_logger("frontend")
     
     
+    
+
+
+    
+    
     def initialize(self, roFname: str):
         """
         Define the gaussian fit and other ROOT based objects that should be persistent in the class memory space
         """
         
+        # Register the function object in the ROOT interpreter
+        fitSchemeA_cpp = """
+        double fitSchemeA(double* x, double* par) {
+            //double ampl = par[0];        // Constant
+            //double mean = par[1];        // Mean
+            //double sigm = par[2];        // Sigma
+            //double base = par[3];        // Baseline
+            //double rejA = par[4];        // Reject points inside ptsA and ptsB (for saturation)
+            //double rejB = par[5];        // Reject points inside ptsA and ptsB (for saturation)
+
+            // Gaussian plus constant
+            double y = par[3] + par[0] * exp(-0.5 * ((x[0]-par[1])/par[2])*((x[0]-par[1])/par[2]));
+            if (par[4] < x[0] && x[0] < par[5]) {
+                TF1::RejectPoint();
+                return 0;
+            }
+            return y;
+        }"""
+        
+        ROOT.gInterpreter.Declare(fitSchemeA_cpp)
+                                  
+
         # Define the fit schemes
         ## Scheme A
         self.fitSchemeA_gaussFit = ROOT.TF1("fitSchemeA", "gaus(0) + pol0(3)", -10.0, 10.0)
-        self.fitSchemeA_gaussFit.SetParLimits(0,   0., 8191.)        # Constant
-        self.fitSchemeA_gaussFit.SetParLimits(1, -10.,   10.)        # Mean
-        self.fitSchemeA_gaussFit.SetParLimits(2,0.100, 10./3)        # Sigma
-        self.fitSchemeA_gaussFit.SetParLimits(3,   0.,  100.)        # Baseline
-        self.fitSchemeA_gaussFit.SetParNames("fSA_amp", "fSA_mea", "fSA_sig", "fSA_bck")
-        #self.fitSchemeA_gaussFit.SetParameters(8191./2., 92., 2.0, 0.)
-        
+        #self.fitSchemeA_gaussFit = ROOT.TF1("fitSchemeA", ROOT.fitSchemeA, -10.0, 10.0, 6)
+        #self.fitSchemeA_gaussFit.SetParLimits(0,   0., 8191.)        # Constant
+        #self.fitSchemeA_gaussFit.SetParLimits(1, -10.,   10.)        # Mean
+        #self.fitSchemeA_gaussFit.SetParLimits(2,0.100, 10./3)        # Sigma
+        #self.fitSchemeA_gaussFit.SetParLimits(3,   0.,  100.)        # Baseline
+        #self.fitSchemeA_gaussFit.SetParLimits(4,   0.,    0.)        # Reject points inside ptsA and ptsB (for saturation)
+        #self.fitSchemeA_gaussFit.SetParLimits(5,   0.,    0.)        # Reject points inside ptsA and ptsB (for saturation)
+        self.fitSchemeA_gaussFit.SetParNames("fSA_amp", "fSA_mea", "fSA_sig", "fSA_bck", "fSA_rjA", "fSA_rjB")
+
         # Create the class containing the output of the feature extraction data
         self.roClass = rdataStruct_OPT(roFname)
            
@@ -83,6 +114,42 @@ class featureExtractor:
         (self.logging).debug(msg)
     
     
+    # Detect if there is saturation in the profile
+    def isSaturating(self, profile: np.ndarray, windowSize: int) -> np.ndarray:    
+        # Estimate the central region of the profile
+        grStdX = np.std(profile[:, 0])
+        grMeanX = np.sum(profile[:, 0] * profile[:, 1]) / np.sum(profile[:, 1])
+        meanL, meanH = (grMeanX-0.2*grStdX),    (grMeanX+0.2*grStdX)
+                
+        # Sort the profile and calculate the difference between adjacent strip charges
+        profile = profile[np.argsort(profile[:,0])]
+
+        # Consider onlt the central region, because in the tails constant value is expected
+        conditionCentral = (profile[:,0] > meanL) & (profile[:,0] < meanH)
+        profileCentral = profile[conditionCentral]
+        
+        stripDiff = np.diff(profileCentral[:,0])
+        stripDiff = np.append(stripDiff, stripDiff[-1])
+        chgDiff = np.diff(profileCentral[:,1])
+        chgDiff = np.append(chgDiff, chgDiff[-1])
+        diffStack = np.column_stack((stripDiff, chgDiff))
+        
+        # Get the contiguous holds of the Y values
+        holdPtsMask = (diffStack[:,1] == 0)
+        
+        # Remove from the profile the saturation points
+        profileWithouSat_x = np.concatenate( (profile[np.logical_not(conditionCentral), 0], profileCentral[np.logical_not(holdPtsMask), 0]) )
+        profileWithouSat_y = np.concatenate( (profile[np.logical_not(conditionCentral), 1], profileCentral[np.logical_not(holdPtsMask), 1]) )
+        profileWithouSat_ex = np.concatenate( (profile[np.logical_not(conditionCentral), 2], profileCentral[np.logical_not(holdPtsMask), 2]) )
+        profileWithouSat_ey = np.concatenate( (profile[np.logical_not(conditionCentral), 3], profileCentral[np.logical_not(holdPtsMask), 3]) )
+        profileWithouSat = np.column_stack((profileWithouSat_x, profileWithouSat_y, profileWithouSat_ex, profileWithouSat_ey))
+        
+        #view, ax = plt.subplots()
+        #ax.scatter(profileWithouSat[:, 0], profileWithouSat[:, 1])
+        #plt.show()
+
+        return (np.sum(holdPtsMask) >= windowSize), profileWithouSat[np.argsort(profileWithouSat[:,0])]
+    
     # Initialize and perform the gaussian fit
     @dispatch(ROOT.TGraphErrors)
     def fitSchemeA(self, profile: ROOT.TGraphErrors) -> dict:
@@ -99,47 +166,67 @@ class featureExtractor:
         """
         
         # Copy the fitSchemeA into a new object (otherwise the ParLimits and other attributes of the fit will be changed)
-        fitSchemeA_gaussFit = self.fitSchemeA_gaussFit.Clone()
+        fitSchemeA_gaussFit = (self.fitSchemeA_gaussFit).Clone()
+        # Copy the input profile, in order to be able to change it in case of saturation
+        profileUnsaturated = profile.Clone()
+        
+        # Get the data from the TGraphErrors
+        grPoints = np.column_stack((profile.GetX(), profile.GetY(), profile.GetEX(), profile.GetEY()))
+        # Check if there is saturation in the profile, and in case push the lower limit for the constant to high value
+        satFlag, npProfileUnsaturated = self.isSaturating(grPoints, 8)
+        # If saturation happens, then replace the profile with one without the saturation points
+        if satFlag:
+            del profileUnsaturated
+            # Create a new TGraph without the points with saturation
+            profileUnsaturated = ROOT.TGraphErrors(npProfileUnsaturated.shape[0], np.asarray(npProfileUnsaturated[:, 0], dtype=np.single), np.asarray(npProfileUnsaturated[:, 1], dtype=np.single), np.asarray(npProfileUnsaturated[:, 2], dtype=np.single), np.asarray(npProfileUnsaturated[:, 3], dtype=np.single))
+            grPoints = npProfileUnsaturated
         
         # Calculate the optimal values to correctly inizialize the fit parameters
         ## Mean and standard deviation
-        grPoints =np.column_stack((profile.GetX(), profile.GetY()))
         grMin, grMax = np.min(grPoints[:,1]), np.max(grPoints[:, 1])
-        grStdX, grStdY = profile.GetRMS(1), profile.GetRMS(2)
-        grMeanX, grMeanY = np.sum(grPoints[:, 0] * grPoints[:, 1]) / np.sum(grPoints[:, 1]), profile.GetMean(2)
-        
+        grStdX, grStdY = profileUnsaturated.GetRMS(1), profileUnsaturated.GetRMS(2)
+        grMeanX, grMeanY = np.sum(grPoints[:, 0] * grPoints[:, 1]) / np.sum(grPoints[:, 1]), profileUnsaturated.GetMean(2)
+        ## Calculate the intervals for the parameters
+        ## Make sure that the parlimits are actually parlimits by adding a small amount (1e-6)
+        amplL, amplH = 0.5*grMax,               3.0*grMax               +1e-6
+        meanL, meanH = (grMeanX-0.2*grStdX),    (grMeanX+0.2*grStdX)    +1e-6
+        sigmL, sigmH = 0.01*grStdX,             1.0*grStdX              +1e-6
+        baseL, baseH = 0,                       1.2*grMin               +1e-6
+        ## Printouts the pars for check
         #print("grMin", grMin, grMax)
         #print("grStdX", grStdX, grStdY)
         #print("grMeanX", grMeanX, grMeanY)
         #print("-------")
+        #print("amplL, amplH", amplL, amplH)
+        #print("meanL, meanH", meanL, meanH)
+        #print("sigmL, sigmH", sigmL, sigmH)
+        #print("baseL, baseH", baseL, baseH)
         
-        ## Calculate the intervals for the parameters
-        amplL, amplH = grMin,               8192.0
-        meanL, meanH = (grMeanX-grStdX),    (grMeanX+grStdX)
-        sigmL, sigmH = 0.01*grStdX,         2.0*grStdX
-        baseL, baseH = 0,                   1.2*grMin
-        
-        #print(amplL, amplH)
-        #print(meanL, meanH)
-        #print(sigmL, sigmH)
-        #print(baseL, baseH)
         
         # Set the optimal values to correclty initialize the fit
-        fitSchemeA_gaussFit.SetRange(grMeanX-2*grStdX, grMeanX+2*grStdX)
-        fitSchemeA_gaussFit.SetParLimits(0, amplL, amplH)       # Constant
-        fitSchemeA_gaussFit.SetParLimits(1, meanL, meanH)       # Mean
-        fitSchemeA_gaussFit.SetParLimits(2, sigmL, sigmH)       # Sigma
-        fitSchemeA_gaussFit.SetParLimits(3, baseL, baseH)       # Baseline
-        fitSchemeA_gaussFit.SetParameters( 0.5*(amplL+amplH), 0.5*(meanL+meanH), 0.5*(sigmL+sigmH), 0.5*(baseL+baseH))
+        ## Set the range of the fit in order to exclude the tails
+        #fitSchemeA_gaussFit.SetRange(grMeanX-grStdX, grMeanX+grStdX)
+        #fitSchemeA_gaussFit.SetParLimits(0, amplL, amplH)       # Constant
+        #fitSchemeA_gaussFit.SetParLimits(1, meanL, meanH)       # Mean
+        #fitSchemeA_gaussFit.SetParLimits(2, sigmL, sigmH)       # Sigma
+        #fitSchemeA_gaussFit.SetParLimits(3, baseL, baseH)       # Baseline
+        #fitSchemeA_gaussFit.FixParameter(3, 0.)
+        ### Initalize the parameters with mean values
+        #fitSchemeA_gaussFit.SetParameters( 0.5*(amplL+amplH), 0.5*(meanL+meanH), 0.5*(sigmL+sigmH), 0.5*(baseL+baseH))
+        
+        #if satFlag:
+        #    fitSchemeA_gaussFit.SetParLimits(0, amplL, amplH+1e-6)
         
         # Fit the profile
-        fitOpts  = "Q  "   # Quiet mode
+        fitOpts =  "Q "   # Quiet mode
+        fitOpts += "M "   # Improve fit with Minuit
         fitOpts += "R "   # Use the range specified in the function range
         fitOpts += "S "   # The result of the fit is returned in the TFitResultPtr
-        #profile.Draw("AP")
-        fitResultPtr = profile.Fit(fitSchemeA_gaussFit, fitOpts)
+        #profileUnsaturated.Draw("AP")
+        fitResultPtr = profileUnsaturated.Fit(fitSchemeA_gaussFit, fitOpts)
         # Get the covariance matrix, from which the chi2 and fit pars can be read 
         #covMatrix = fitResultPtr.GetCovarianceMatrix()
+        #input()
         
         # Chi2
         fitPars = {}
@@ -152,7 +239,7 @@ class featureExtractor:
         for i in range(4):
             parName = fitSchemeA_gaussFit.GetParName(i)
             fitPars[parName] = (fitSchemeA_gaussFit.GetParameter(i), fitSchemeA_gaussFit.GetParError(i))
-        
+
         return fitPars
     
 

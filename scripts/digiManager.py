@@ -120,7 +120,7 @@ def pipeline():
         27.0,
         0.0,
         8, 
-        (10e-15/1.60e-19),
+        (100e-15/1.60e-19),
         1.0,
         [0.1,0.01,0.001])
 
@@ -401,8 +401,8 @@ def makeJobs(mcPath: str, dataPath: str, bunchParNb: int, cceA: float, cceB: flo
 if __name__=="__main__":
     pass
     #logging.setLevel(10)       # This correspond to debug mode
-    #pipeline()
-    #exit(
+    pipeline()
+    exit()
 
     #pS = makePhaseSpace_test()
     #dataDir, bunchParNb = "data/", 10000
