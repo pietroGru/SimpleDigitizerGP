@@ -143,6 +143,40 @@ def pipeline():
         [0.1,0.01,0.001])
 
 
+# Assuming an exponential decay law for decrease of the charge sharing among N-nearest neightbours
+def chgCrossTalkExpLaw(vChgShrCrossTalkNN_percent: float, plScale_um: float):
+    """
+    Assuming an exponential decay law for decrease of the charge sharing among N-nearest neightbours, it generates a list of chgSharing percentages
+    staring from 'vChgShrCrossTalkNN_percent' for the closest strip and using the 'plScale_um' as the exponential decay scale.
+    
+    Parameters
+    ----------
+        vChgShrCrossTalkNN_percent (float) : charge sharing percentage for the nearest neighbour
+        plScale_um (float) : exponential decay scale in um
+    
+    Returns
+    -------
+        vChgShrCrossTalkA (np.array) : array of charge sharing percentages
+    """
+    
+    # Check that the plScale is positive
+    if plScale_um < 0: raise Exception("plScale should be positive")
+    
+    # Generate the list itself
+    distances = np.linspace(0.100, 10*0.100, 10, endpoint=True)
+    vChgShrCrossTalkA = vChgShrCrossTalkNN_percent * np.exp(-distances/plScale_um)
+    logging.debug(vChgShrCrossTalkA)
+    
+    # Check that the crosstalk array is valid and won't trigger the frontend class exception
+    if 2*np.sum(vChgShrCrossTalkA) > 1.0:
+        logging.fatal(f"Phase space var invalid for chgCrossTalkExpLaw with {vChgShrCrossTalkA}")
+        raise Exception("Invalid chgCrossTalkExpLaw arguments")
+
+    return vChgShrCrossTalkA
+
+
+
+
 
 # Generate a parameter space. The idea of this function is to optimize the phase space w.r.t. the naive linspace tensor product
 @dispatch(tuple, tuple, tuple, tuple, tuple, tuple, tuple)
@@ -219,6 +253,29 @@ def makePhaseSpace() -> np.array:
     return phaseSpace
 
 
+# Generate a sensible phase space for the scan for LUXE GP suing A5202 cards
+def makePhaseSpaceGPA5202() -> np.array:
+    """
+    Generate a sensible phase space for the scan for LUXE GP suing A5202 cards
+    """
+    
+    # Generate the linear spaces in a sensible way
+    phaseSpace_cce = np.linspace(0.05, 0.2, 2, endpoint=True)
+    phaseSpace_avgPairEn = np.linspace(27.0, 27.0, 1, endpoint=True)
+    phaseSpace_fNoise = np.linspace((14.615e-15/1.60e-19), (8.289e-15/1.60e-19), 10, endpoint=True)
+    phaseSpace_iADCres = np.linspace(13, 13, 1, dtype=int, endpoint=True)   # the dtype casting to int is important to enforce that ADC values are integers
+    phaseSpace_fOlScale = np.linspace((15.75e-12/1.60e-19), (1.79e-12/1.60e-19), 4, endpoint=True)
+    phaseSpace_fGain = np.linspace(5, 63, 4, endpoint=True)
+    phaseSpace_vChgShrCrossTalkMap = np.linspace(chgCrossTalkExpLaw(0.02, 0.100), chgCrossTalkExpLaw(0.1, 0.100), 2, endpoint=True)
+    phaseSpace = np.array((phaseSpace_cce, phaseSpace_avgPairEn, phaseSpace_fNoise, phaseSpace_iADCres, phaseSpace_fOlScale, phaseSpace_fGain, phaseSpace_vChgShrCrossTalkMap), dtype=object)
+
+    # Check PS consistency, for example throw exceptions on repetitions
+    for item in phaseSpace:
+        if len(np.unique(item))!=len(item): logging.warning(f"The {item} contains repetitions! Please fix.")
+    
+    return phaseSpace
+
+
 def makeJobs(mcPath: str, bunchParNb: int, phaseSpace: np.array):
     """
     The pipeline function is expanded in order to optimize as much as possible the scan
@@ -230,7 +287,6 @@ def makeJobs(mcPath: str, bunchParNb: int, phaseSpace: np.array):
     Pipeline Pars
     ----------
         mcPath (str) : Filename of the MC ROOT file containing the data
-        bunchParNb (int) : Number of particles in the bunch
         outPath (str) : Filename of the output ROOT file where the parameters from the feature extraction are stored
         _bunchParNb (int) : Number of particles in a bunch
         _cce (float) : Charge collection efficiency of the sensor for the bare geometrical projection of the dep chg. to proj chg.
@@ -239,7 +295,7 @@ def makeJobs(mcPath: str, bunchParNb: int, phaseSpace: np.array):
         _iADCres (int) : Number of bits of the analog-to-digital converter (12-bit -> 12)
         _fOlScale (float) : Full scale range that the frontend is capable of digitizing (in electron units)
         _fGain (float) : Amplifier gain (ration between final charge and initial charge)
-        _vChgShrCrossTalkMap (list) : Cross-talk charge sharing percentages (es. [0.1,0.002, 0.0003] means that 0.1 is shared between strips at 1 distance, 0.002 between strips at distance 2, etc.)
+        _vChgShrCrossTalkMap (list) : Cross-talk charge sharing percentages (es. [0.1, 0.002, 0.0003] means that 0.1 is shared between strips at 1 distance, 0.002 between strips at distance 2, etc.)
         
     Returns
     -------
@@ -257,7 +313,7 @@ def makeJobs(mcPath: str, bunchParNb: int, phaseSpace: np.array):
         """
         _vChgShrCrossTalkMapStr = ""
         for item in _vChgShrCrossTalkMap:
-            _vChgShrCrossTalkMapStr += f"{item:.3f},"
+            _vChgShrCrossTalkMapStr += f"{item:.3e},"
         if len(_vChgShrCrossTalkMap): _vChgShrCrossTalkMapStr = _vChgShrCrossTalkMapStr[:-1]
         ofFname = f"mkJbs_{_bunchParNb}_{_cce:.2f}_{_avgPairEn:.1f}_{_fNoise:.0f}_{_iADCres}_{_fOlScale:.0f}_{_fGain:.3f}_{_vChgShrCrossTalkMapStr}.root"
         return ofFname
@@ -270,28 +326,11 @@ def makeJobs(mcPath: str, bunchParNb: int, phaseSpace: np.array):
                     for fOlScale in phaseSpace[4]:
                         for fGain in phaseSpace[5]:
                             for vChgShrCrossTalkMap in phaseSpace[6]:
-                                print(mcPath,
-                                    createFname(bunchParNb, cce, avgPairEn, fNoise, iADCres, fOlScale, fGain, vChgShrCrossTalkMap),
-                                    bunchParNb,
-                                    cce,
-                                    avgPairEn,
-                                    fNoise,
-                                    iADCres,
-                                    fOlScale,
-                                    fGain,
-                                    vChgShrCrossTalkMap)
+                                #print(mcPath, createFname(bunchParNb, cce, avgPairEn, fNoise, iADCres, fOlScale, fGain, vChgShrCrossTalkMap), bunchParNb, cce, avgPairEn, fNoise, iADCres, fOlScale, fGain, list(vChgShrCrossTalkMap))
                                 #continue
-                                pipeline(
-                                    mcPath,
-                                    createFname(bunchParNb, cce, avgPairEn, fNoise, iADCres, fOlScale, fGain, vChgShrCrossTalkMap),
-                                    bunchParNb,
-                                    cce,
-                                    avgPairEn,
-                                    fNoise,
-                                    iADCres,
-                                    fOlScale,
-                                    fGain,
-                                    vChgShrCrossTalkMap)
+                                pipeline(mcPath, createFname(bunchParNb, cce, avgPairEn, fNoise, iADCres, fOlScale, fGain, vChgShrCrossTalkMap), bunchParNb, float(cce), float(avgPairEn), float(fNoise), int(iADCres), float(fOlScale), float(fGain), list(vChgShrCrossTalkMap))
+
+
 
 
 
@@ -300,8 +339,12 @@ if __name__=="__main__":
     #logging.setLevel(10)       # This correspond to debug mode
     #pipeline()
     #exit()
-    pS = makePhaseSpace()
+    
+    pS = makePhaseSpaceGPA5202()
     makeJobs("build/dummyRun_100k.root", 10000, pS)
+    exit()
+
+
 
     
 
