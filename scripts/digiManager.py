@@ -239,7 +239,7 @@ def makePhaseSpace() -> np.ndarray:
     return phaseSpace
 
 
-'''
+
 # Overload of makePhaseSpace defaultuing the parameters (test method)
 def makePhaseSpace_test() -> np.ndarray:
     """
@@ -262,7 +262,7 @@ def makePhaseSpace_test() -> np.ndarray:
         if len(np.unique(item))!=len(item): logging.warning(f"The {item} contains repetitions! Please fix.")
     
     return phaseSpace
-'''
+
 
 
 
@@ -401,14 +401,18 @@ def makeJobs(mcPath: str, dataPath: str, bunchParNb: int, cceA: float, cceB: flo
 if __name__=="__main__":
     pass
     #logging.setLevel(10)       # This correspond to debug mode
-    pipeline()
-    exit()
-
-    #pS = makePhaseSpace_test()
-    #dataDir, bunchParNb = "data/", 10000
-    #makeJobs("build/dummyRun_100k.root", dataDir, bunchParNb, pS)
-    #exit()
     
+    # Example running the pipeline of digitization
+    #pipeline()
+    #exit()
+
+    # Example running a digitization pipeline scanning a dummy phasespace
+    pS = makePhaseSpace_test()
+    dataDir, bunchParNb = "data/", 10000
+    makeJobs("build/dummyRun_100k.root", dataDir, bunchParNb, pS)
+    exit()
+    
+    # Example with a phasespace on A5202 physical grounds 
     #pS = makePhaseSpaceGPA5202()
     #dataDir, bunchParNb = "data/", 10000
     #makeJobs("build/dummyRun_100k.root", dataDir, bunchParNb, pS)
