@@ -5,8 +5,9 @@ A simple digitization script to quantify detector dependent effects degradating 
 ## Table of Contents
 
 - [Project Description](#project-description)
-- [Features](#features)
+- [Structure of the output ROOT file](#structure-of-the-output-root-file)
 - [Usage](#usage)
+- [CLI parser (disclamer)](#cli-parser-disclamer)
 - [Analysis](#analysis)
 - [License](#license)
 
