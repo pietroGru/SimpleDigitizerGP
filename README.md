@@ -5,7 +5,7 @@ A simple digitization script to quantify detector dependent effects degradating 
 ## Table of Contents
 
 - [Project Description](#project-description)
-- [Structure of the output ROOT file](#structure-of-the-output-root-file)
+    - [Structure of the output ROOT file](#structure-of-the-output-root-file)
 - [Usage](#usage)
 - [CLI parser (disclamer)](#cli-parser-disclamer)
 - [Analysis](#analysis)
@@ -45,7 +45,7 @@ The pipeline is based on the following steps:
 3. The digitizer profiles are fed into a `featureExtractor` class. The class is supposed to represent an abstract container for arbitrary algorithms extracting some observables from the digitizer profiles and storing them on a file. In the current implementation, a fitSchemeA with a gaussian+constant fit is performed. There is a dedicated flow if the profile is saturating or not, in order to ensure *decent* fit convergence in both cases. The fit parameters are stored in a ROOT file, together with the digitizer profiles and the original profiles from the MC simulation.
 
 
-## Structure of the output ROOT file
+### Structure of the output ROOT file
 Here an example of the ROOT file produced by the simulation
 <div style="margin-left: 0%; margin-right: auto;"><img style="height:40em;" src="docs/img/rfile.jpg"></img></div>
 
