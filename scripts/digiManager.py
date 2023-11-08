@@ -247,12 +247,12 @@ def makePhaseSpace_test() -> np.ndarray:
     """
     
     # Generate the linear spaces in a sensible way
-    phaseSpace_cce = np.linspace(0.1, 0.5, 2, endpoint=True)
-    phaseSpace_avgPairEn = np.linspace(13.0, 30.0, 2, endpoint=True)
+    phaseSpace_cce = np.linspace(0.2, 0.2, 1, endpoint=True)
+    phaseSpace_avgPairEn = np.linspace(27.0, 30.0, 2, endpoint=True)
     phaseSpace_fNoise = np.linspace(0, 1000, 2, endpoint=True)
     phaseSpace_iADCres = np.linspace(13, 13, 1, dtype=np.intc, endpoint=True)   # the dtype casting to int is important to enforce that ADC values are integers
-    phaseSpace_fOlScale = np.linspace((10e-15/1.60e-19), (600e-15/1.60e-19), 2, endpoint=True)
-    phaseSpace_fGain = np.linspace(1, 20, 2, endpoint=True)
+    phaseSpace_fOlScale = np.linspace((100e-15/1.60e-19), (1000e-15/1.60e-19), 2, endpoint=True)
+    phaseSpace_fGain = np.linspace(1, 10, 2, endpoint=True)
     phaseSpace_vChgShrCrossTalkMap = np.linspace([0.010, 0.001], [0.10, 0.001], 2, endpoint=True)
     
     phaseSpace = np.array((phaseSpace_cce, phaseSpace_avgPairEn, phaseSpace_fNoise, phaseSpace_iADCres, phaseSpace_fOlScale, phaseSpace_fGain, phaseSpace_vChgShrCrossTalkMap), dtype=object)
@@ -298,7 +298,7 @@ def makeJobs(mcPath: str, dataPath: str, bunchParNb: int, phaseSpace: np.ndarray
     """
     
     # Make sure the data path has the final '/' 
-    if len(dataPath) > 0 and dataPath[-1] == '/': dataPath += '/'
+    if len(dataPath) > 0 and dataPath[-1] != '/': dataPath += '/'
     
     # Create the filename of the output file in such a way that it is intellegible what pars defined the run
     def createFname(_bunchParNb, _cce, _avgPairEn, _fNoise, _iADCres, _fOlScale, _fGain, _vChgShrCrossTalkMap):
@@ -334,7 +334,9 @@ def makeJobs(mcPath: str, dataPath: str, bunchParNb: int, phaseSpace: np.ndarray
                             for vChgShrCrossTalkMap in tqdm(phaseSpace[6], desc=green+"      vChgShrCrossTalkMap"+reset, position=6, leave=False):
                                 #print(mcPath, createFname(bunchParNb, cce, avgPairEn, fNoise, iADCres, fOlScale, fGain, vChgShrCrossTalkMap), bunchParNb, cce, avgPairEn, fNoise, iADCres, fOlScale, fGain, list(vChgShrCrossTalkMap))
                                 #continue
-                                pipeline(mcPath, createFname(bunchParNb, cce, avgPairEn, fNoise, iADCres, fOlScale, fGain, vChgShrCrossTalkMap), bunchParNb, float(cce), float(avgPairEn), float(fNoise), int(iADCres), float(fOlScale), float(fGain), list(vChgShrCrossTalkMap))
+                                roFname = createFname(bunchParNb, cce, avgPairEn, fNoise, iADCres, fOlScale, fGain, vChgShrCrossTalkMap)
+                                if os.path.exists(roFname): continue
+                                pipeline(mcPath, roFname, bunchParNb, float(cce), float(avgPairEn), float(fNoise), int(iADCres), float(fOlScale), float(fGain), list(vChgShrCrossTalkMap))
 
 
 # Overload defaulting the path to data
@@ -402,7 +404,7 @@ if __name__=="__main__":
     pass
     #logging.setLevel(10)       # This correspond to debug mode
     
-    # Example running the pipeline of digitization
+    ## Example running the pipeline of digitization
     #pipeline()
     #exit()
 
