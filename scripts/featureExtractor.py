@@ -209,7 +209,7 @@ class featureExtractor:
         fitSchemeA_gaussFit.SetParLimits(2, sigmL, sigmH)       # Sigma
         fitSchemeA_gaussFit.SetParLimits(3, baseL, baseH)       # Baseline
         
-        if satFlag:
+        if 0*satFlag:
             print("\n\n saturation detected")
             #amplL, amplH = grMax,               8192           +1e-6
             #fitSchemeA_gaussFit.SetParLimits(0, amplL, amplH)
@@ -218,12 +218,13 @@ class featureExtractor:
         fitSchemeA_gaussFit.SetParameters( 0.5*(amplL+amplH), 0.5*(meanL+meanH), 0.5*(sigmL+sigmH), 0.5*(baseL+baseH))
         
         # Fit the profile
-        fitOpts =  "  "   # Quiet mode
+        fitOpts =  "Q "   # Quiet mode
         fitOpts += "M "   # Improve fit with Minuit
+        fitOpts += "W "   # Ignore the error bars
         fitOpts += "R "   # Use the range specified in the function range
         fitOpts += "S "   # The result of the fit is returned in the TFitResultPtr
         canvas = ROOT.TCanvas("canvas", "canvas")
-        profileUnsaturated.Draw("AP")
+        profileUnsaturated.Draw("AP*")
         fitResultPtr = profileUnsaturated.Fit(fitSchemeA_gaussFit, fitOpts)
         #fitResultPtr = profileUnsaturated.Fit("gaus")
         # Get the covariance matrix, from which the chi2 and fit pars can be read 
