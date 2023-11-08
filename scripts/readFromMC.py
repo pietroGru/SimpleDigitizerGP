@@ -11,6 +11,9 @@ import numpy as np
 import ROOT
 import os
 
+# Enable ROOT implicit multithreading
+ROOT.EnableImplicitMT(16)
+
 
 class readFromMc():
     # readFromMc class logger
@@ -43,11 +46,8 @@ class readFromMc():
         self.avgPairEn = avgPairEn
         
         # Checks validity of the parameters
-        if not (cce>=0 and cce<=1): raise Exception("CCE must be between 0 and 1")
+        #if not (cce>=0 and cce<=1): raise Exception("CCE must be between 0 and 1")
         
-        # Enable ROOT implicit multithreading
-        #ROOT.EnableImplicitMT(16)
-    
 
 
     # Takes the map of energy deposited in a sensor and returns the map of charge collected at the strips (hor./vert.)
