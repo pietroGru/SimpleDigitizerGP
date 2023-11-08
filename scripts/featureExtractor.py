@@ -44,12 +44,7 @@ class featureExtractor:
     """
     # frontend class logger
     logging = create_logger("frontend")
-    
-    
-    
 
-
-    
     
     def initialize(self, roFname: str):
         """
@@ -58,14 +53,21 @@ class featureExtractor:
 
         # Define the fit schemes
         ## Scheme A
-        self.fitSchemeA_gaussFit = ROOT.TF1("fitSchemeA", ROOT.fitSchemeA, -10.0, 10.0, 6)
+        self.fitSchemeA_gaussFit = ROOT.TF1("fitSchemeA", "gaus(0) + pol0(3)", -10.0, 10.0)
         self.fitSchemeA_gaussFit.SetParLimits(0,   0., 8191.)        # Constant
         self.fitSchemeA_gaussFit.SetParLimits(1, -10.,   10.)        # Mean
         self.fitSchemeA_gaussFit.SetParLimits(2,0.100, 10./3)        # Sigma
         self.fitSchemeA_gaussFit.SetParLimits(3,   0.,  100.)        # Baseline
-        self.fitSchemeA_gaussFit.SetParLimits(4,   0.,    0.)        # Reject points inside ptsA and ptsB (for saturation)
-        self.fitSchemeA_gaussFit.SetParLimits(5,   0.,    0.)        # Reject points inside ptsA and ptsB (for saturation)
-        self.fitSchemeA_gaussFit.SetParNames("fSA_amp", "fSA_mea", "fSA_sig", "fSA_bck", "fSA_rjA", "fSA_rjB")
+        self.fitSchemeA_gaussFit.SetParNames("fSA_amp", "fSA_mea", "fSA_sig", "fSA_bck")
+        
+        #self.fitSchemeA_gaussFit = ROOT.TF1("fitSchemeA", ROOT.fitSchemeA, -10.0, 10.0, 6)
+        #self.fitSchemeA_gaussFit.SetParLimits(0,   0., 8191.)        # Constant
+        #self.fitSchemeA_gaussFit.SetParLimits(1, -10.,   10.)        # Mean
+        #self.fitSchemeA_gaussFit.SetParLimits(2,0.100, 10./3)        # Sigma
+        #self.fitSchemeA_gaussFit.SetParLimits(3,   0.,  100.)        # Baseline
+        #self.fitSchemeA_gaussFit.SetParLimits(4,   0.,    0.)        # Reject points inside ptsA and ptsB (for saturation)
+        #self.fitSchemeA_gaussFit.SetParLimits(5,   0.,    0.)        # Reject points inside ptsA and ptsB (for saturation)
+        #self.fitSchemeA_gaussFit.SetParNames("fSA_amp", "fSA_mea", "fSA_sig", "fSA_bck", "fSA_rjA", "fSA_rjB")
 
         # Create the class containing the output of the feature extraction data
         self.roClass = rdataStruct_OPT(roFname)
@@ -207,26 +209,27 @@ class featureExtractor:
         fitSchemeA_gaussFit.SetParLimits(2, sigmL, sigmH)       # Sigma
         fitSchemeA_gaussFit.SetParLimits(3, baseL, baseH)       # Baseline
         
-        if 0*satFlag:
-            amplL, amplH = grMax,               8192           +1e-6
-            fitSchemeA_gaussFit.SetParLimits(0, amplL, amplH)
+        if satFlag:
+            print("\n\n saturation detected")
+            #amplL, amplH = grMax,               8192           +1e-6
+            #fitSchemeA_gaussFit.SetParLimits(0, amplL, amplH)
             
         ## Initalize the parameters with mean values
         fitSchemeA_gaussFit.SetParameters( 0.5*(amplL+amplH), 0.5*(meanL+meanH), 0.5*(sigmL+sigmH), 0.5*(baseL+baseH))
         
         # Fit the profile
-        fitOpts =  "Q "   # Quiet mode
+        fitOpts =  "  "   # Quiet mode
         fitOpts += "M "   # Improve fit with Minuit
         fitOpts += "R "   # Use the range specified in the function range
         fitOpts += "S "   # The result of the fit is returned in the TFitResultPtr
-        #canvas = ROOT.TCanvas("canvas", "canvas")
-        #profileUnsaturated.Draw("AP")
+        canvas = ROOT.TCanvas("canvas", "canvas")
+        profileUnsaturated.Draw("AP")
         fitResultPtr = profileUnsaturated.Fit(fitSchemeA_gaussFit, fitOpts)
         #fitResultPtr = profileUnsaturated.Fit("gaus")
         # Get the covariance matrix, from which the chi2 and fit pars can be read 
         #covMatrix = fitResultPtr.GetCovarianceMatrix()
-        #canvas.Update()
-        #input()
+        canvas.Update()
+        input()
         
         # Chi2
         fitPars = {}
