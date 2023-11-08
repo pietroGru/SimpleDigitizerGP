@@ -77,7 +77,7 @@ def pipeline(mcPath: str, outPath: str, _bunchParNb: int, _cce: float, _avgPairE
     
     # Read data from the MC
     rMCClass = readFromMc(rFname = mcPath, bunchParNb = _bunchParNb, cce = _cce, avgPairEn = _avgPairEn)
-    projChgProfs = rMCClass.readProjProfilesFromROOT()
+    projChgProfs = rMCClass.getChgProjProfs()
 
     # Define the front-end settings
     #aFrontEnd = frontend(fNoise = (1e-15/1.60e-19), iADCres = 13, fOlScale = (12e-15/1.60e-19), fGain = 1.0, vChgShrCrossTalkMap = [0], projChgProfiles = tmp)
@@ -404,9 +404,9 @@ if __name__=="__main__":
     pass
     #logging.setLevel(10)       # This correspond to debug mode
     
-    ## Example running the pipeline of digitization
-    #pipeline()
-    #exit()
+    # Example running the pipeline of digitization
+    pipeline()
+    exit()
 
     # Example running a digitization pipeline scanning a dummy phasespace
     pS = makePhaseSpace_test()
